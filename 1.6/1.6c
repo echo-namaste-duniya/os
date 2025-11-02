@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Check if at least one argument is provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 file1 [file2 ...]"
+    exit 1
+fi
+
+# Process each file argument
+for file in "$@"; do
+    # Check if file exists in current directory
+    if [ -f "$file" ]; then
+        # Create uppercase filename
+        uppercase_name=$(echo "$file" | tr '[:lower:]' '[:upper:]')
+        
+        # Rename the file if the uppercase name is different
+        if [ "$file" != "$uppercase_name" ]; then
+            mv "$file" "$uppercase_name"
+            echo "Renamed: $file -> $uppercase_name"
+        else
+            echo "Already uppercase: $file"
+        fi
+    else
+        echo "Error: '$file' does not exist in current directory"
+    fi
+done

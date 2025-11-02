@@ -1,0 +1,6 @@
+This is the first line with the word test.
+This is a normal line.
+Here's another test line to remove.
+This line should stay.
+One more test case here.
+Final line without the keyword.

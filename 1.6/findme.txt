@@ -1,0 +1,3 @@
+This is a sample text file.
+It will be used to test the find command.
+We can search for this file.

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Check if at least two arguments are provided
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 word file1 [file2 ...]"
+    exit 1
+fi
+
+word="$1"
+shift  # Remove first argument (word) from argument list
+
+# Process each file
+for file in "$@"; do
+    if [ ! -f "$file" ]; then
+        echo "Error: File '$file' does not exist"
+        continue
+    fi
+    
+    # Create a temporary file
+    temp_file=$(mktemp)
+    
+    # Delete lines containing the word and save to temporary file
+    grep -v "$word" "$file" > "$temp_file"
+    
+    # Replace original file with modified content
+    mv "$temp_file" "$file"
+    
+    echo "Processed file: $file"
+done

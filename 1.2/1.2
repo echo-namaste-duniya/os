@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Initialize phonebook file if it doesn't exist
+if [ ! -f phonebook.txt ]; then
+    touch phonebook.txt
+fi
+
+# Function to get last name from full name
+get_last_name() {
+    echo "$1" | awk '{print $NF}'
+}
+
+while true; do
+    # Display menu
+    echo "Phone Book Management System"
+    echo "1. Add a new name to phone book"
+    echo "2. Display matches to a name or phone number"
+    echo "3. Sort phone book by last name"
+    echo "4. Delete an entry"
+    echo "5. Quit"
+    echo -n "Enter your choice (1-5): "
+    read choice
+
+    case $choice in
+        1)  # Add new entry
+            echo -n "Enter First Name: "
+            read first_name
+            echo -n "Enter Last Name: "
+            read last_name
+            echo -n "Enter Phone Number: "
+            read phone
+
+            # Add entry with tab separation
+            echo -e "$first_name $last_name\t$phone" >> phonebook.txt
+            echo "Entry added successfully!"
+            ;;
+
+        2)  # Search entries
+            echo -n "Enter search term (name or phone number): "
+            read search_term
+            echo "Search Results:"
+            echo -e "Name\tPhone"
+            echo "------------------------"
+            grep -i "$search_term" phonebook.txt
+            ;;
+
+        3)  # Sort by last name
+            echo "Sorting phone book by last name..."
+            # Create temporary file with last names first, sort it, then restore format
+            while IFS=$'\t' read -r name phone; do
+                last_name=$(get_last_name "$name")
+                echo -e "$last_name\t$name\t$phone"
+            done < phonebook.txt | sort -f | cut -f2- > phonebook_sorted.txt
+            mv phonebook_sorted.txt phonebook.txt
+            echo "Phone book has been sorted!"
+            echo "Current phone book contents:"
+            echo -e "Name\tPhone"
+            echo "------------------------"
+            cat phonebook.txt
+            ;;
+
+        4)  # Delete entry
+            echo -n "Enter exact name or phone number to delete: "
+            read delete_term
+            if grep -i "$delete_term" phonebook.txt > /dev/null; then
+                echo "Found the following matching entries:"
+                grep -i "$delete_term" phonebook.txt
+                echo -n "Are you sure you want to delete these entries? (y/n): "
+                read confirm
+                if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+                    grep -iv "$delete_term" phonebook.txt > phonebook_temp.txt
+                    mv phonebook_temp.txt phonebook.txt
+                    echo "Entry(s) deleted successfully!"
+                else
+                    echo "Deletion cancelled."
+                fi
+            else
+                echo "No matching entries found!"
+            fi
+            ;;
+
+        5)  # Quit
+            echo "Thank you for using Phone Book Management System"
+            exit 0
+            ;;
+
+        *)  # Invalid choice
+            echo "Invalid choice! Please enter a number between 1 and 5."
+            ;;
+    esac
+
+    echo -e "\nPress Enter to continue..."
+    read
+    clear
+done

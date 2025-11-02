@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Function to test if file exists
+test_file() {
+    echo -n "Enter filename to test: "
+    read filename
+    
+    if [ -f "$filename" ]; then
+        echo "File '$filename' exists"
+        echo "File details:"
+        ls -l "$filename"
+    else
+        echo "File '$filename' does not exist"
+    fi
+}
+
+# Function to read a file
+read_file() {
+    echo -n "Enter filename to read: "
+    read filename
+    
+    if [ -f "$filename" ]; then
+        echo "Contents of '$filename':"
+        echo "------------------------"
+        cat "$filename"
+        echo "------------------------"
+    else
+        echo "Error: File '$filename' does not exist"
+    fi
+}
+
+# Function to delete a file
+delete_file() {
+    echo -n "Enter filename to delete: "
+    read filename
+    
+    if [ -f "$filename" ]; then
+        echo "File details:"
+        ls -l "$filename"
+        echo -n "Are you sure you want to delete this file? (y/n): "
+        read confirm
+        
+        if [ "$confirm" = "y" ] || [ "$confirm" = "Y" ]; then
+            rm "$filename"
+            echo "File '$filename' has been deleted"
+        else
+            echo "Deletion cancelled"
+        fi
+    else
+        echo "Error: File '$filename' does not exist"
+    fi
+}
+
+# Function to display list of files
+list_files() {
+    echo "List of files in current directory:"
+    echo "------------------------"
+    ls -l
+    echo "------------------------"
+    echo "Total files: $(ls -l | grep -v ^d | wc -l)"
+}
+
+# Main menu loop
+while true; do
+    echo -e "\nFile Management System"
+    echo "1. Test if file exists"
+    echo "2. Read a file"
+    echo "3. Delete a file"
+    echo "4. Display list of files"
+    echo "5. Quit"
+    echo -n "Enter your choice (1-5): "
+    read choice
+
+    case $choice in
+        1) test_file ;;
+        2) read_file ;;
+        3) delete_file ;;
+        4) list_files ;;
+        5) echo "Thank you for using File Management System"
+           exit 0 ;;
+        *) echo "Invalid choice! Please enter a number between 1 and 5." ;;
+    esac
+    
+    echo -e "\nPress Enter to continue..."
+    read
+    clear
+done
