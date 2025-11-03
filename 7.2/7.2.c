@@ -1,75 +1,137 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/sem.h>
 #include <string.h>
 
-#define BUFFER_SIZE 256
+#define SHM_SIZE 1024
+#define SHM_KEY 12345
+#define SEM_KEY 54321
 
-// Function to reverse a string
-void reverse_string(char *str) {
-    int length = strlen(str);
-    for(int i = 0; i < length/2; i++) {
-        char temp = str[i];
-        str[i] = str[length-1-i];
-        str[length-1-i] = temp;
-    }
+// Structure for shared memory segment
+typedef struct {
+    int written;  // Flag to indicate if data is written
+    char message[SHM_SIZE];
+} shared_memory;
+
+// Union for semaphore operations
+union semun {
+    int val;
+    struct semid_ds *buf;
+    unsigned short *array;
+};
+
+// Initialize semaphore
+int init_semaphore(int sem_id, int value) {
+    union semun sem_union;
+    sem_union.val = value;
+    return semctl(sem_id, 0, SETVAL, sem_union);
 }
 
-int main() {
-    int pipefd[2];  // Pipe file descriptors
-    pid_t pid;
-    char buffer[BUFFER_SIZE];
-    
-    // Create pipe
-    if(pipe(pipefd) == -1) {
-        perror("Pipe creation failed");
+// P (wait) operation
+void sem_wait(int sem_id) {
+    struct sembuf sb = {0, -1, 0};
+    semop(sem_id, &sb, 1);
+}
+
+// V (signal) operation
+void sem_signal(int sem_id) {
+    struct sembuf sb = {0, 1, 0};
+    semop(sem_id, &sb, 1);
+}
+
+int main(int argc, char *argv[]) {
+    if(argc != 2) {
+        printf("Usage: %s [server|client]\n", argv[0]);
         exit(1);
     }
     
-    pid = fork();
-    if(pid < 0) {
-        perror("Fork failed");
+    // Create shared memory segment
+    int shm_id = shmget(SHM_KEY, sizeof(shared_memory), IPC_CREAT | 0666);
+    if(shm_id == -1) {
+        perror("Shared memory creation failed");
         exit(1);
     }
     
-    if(pid > 0) {  // Parent process
-        // Close read end of pipe
-        close(pipefd[0]);
+    // Attach shared memory segment
+    shared_memory *shm = (shared_memory *)shmat(shm_id, NULL, 0);
+    if(shm == (void *)-1) {
+        perror("Shared memory attachment failed");
+        exit(1);
+    }
+    
+    // Create semaphore
+    int sem_id = semget(SEM_KEY, 1, IPC_CREAT | 0666);
+    if(sem_id == -1) {
+        perror("Semaphore creation failed");
+        exit(1);
+    }
+    
+    if(strcmp(argv[1], "server") == 0) {
+        // Server Process
+        printf("Server Process Started\n");
         
-        printf("Enter a string: ");
-        fgets(buffer, BUFFER_SIZE, stdin);
-        buffer[strcspn(buffer, "\n")] = '\0';  // Remove newline
-        
-        // Write string to pipe
-        if(write(pipefd[1], buffer, strlen(buffer) + 1) == -1) {
-            perror("Write to pipe failed");
+        // Initialize semaphore
+        if(init_semaphore(sem_id, 1) == -1) {
+            perror("Semaphore initialization failed");
             exit(1);
         }
         
-        printf("Parent sent: %s\n", buffer);
-        
-        // Close write end of pipe
-        close(pipefd[1]);
-        
-    } else {  // Child process
-        // Close write end of pipe
-        close(pipefd[1]);
-        
-        // Read string from pipe
-        ssize_t bytes_read = read(pipefd[0], buffer, BUFFER_SIZE);
-        if(bytes_read == -1) {
-            perror("Read from pipe failed");
-            exit(1);
+        while(1) {
+            // Wait for semaphore
+            sem_wait(sem_id);
+            
+            printf("\nEnter message (or 'quit' to exit): ");
+            fgets(shm->message, SHM_SIZE, stdin);
+            shm->message[strcspn(shm->message, "\n")] = '\0';  // Remove newline
+            
+            shm->written = 1;  // Set written flag
+            
+            // Signal semaphore
+            sem_signal(sem_id);
+            
+            if(strcmp(shm->message, "quit") == 0)
+                break;
+            
+            sleep(1);  // Give client time to read
         }
         
-        // Reverse the string
-        reverse_string(buffer);
+        // Cleanup
+        shmdt(shm);
+        shmctl(shm_id, IPC_RMID, NULL);
+        semctl(sem_id, 0, IPC_RMID);
         
-        printf("Child received and reversed: %s\n", buffer);
+    } else if(strcmp(argv[1], "client") == 0) {
+        // Client Process
+        printf("Client Process Started\n");
         
-        // Close read end of pipe
-        close(pipefd[0]);
-        exit(0);
+        while(1) {
+            // Wait for semaphore
+            sem_wait(sem_id);
+            
+            if(shm->written) {
+                printf("Received message: %s\n", shm->message);
+                shm->written = 0;  // Reset written flag
+                
+                if(strcmp(shm->message, "quit") == 0)
+                    break;
+            }
+            
+            // Signal semaphore
+            sem_signal(sem_id);
+            
+            usleep(100000);  // Small delay to prevent busy waiting
+        }
+        
+        // Detach from shared memory
+        shmdt(shm);
+        
+    } else {
+        printf("Invalid argument. Use 'server' or 'client'\n");
+        exit(1);
     }
     
     return 0;

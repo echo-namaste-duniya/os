@@ -4,100 +4,108 @@
 #include <semaphore.h>
 #include <unistd.h>
 
-#define NUM_CHAIRS 3     // Number of chairs in hallway
-#define NUM_STUDENTS 10  // Total number of students
+#define MAX_CHAIRS 3  // Number of chairs in the hallway
 
-// Synchronization tools
-sem_t ta_sem;          // For TA's sleep/wakeup
-sem_t student_sem;     // For student waiting
-pthread_mutex_t mutex; // For chairs access
+sem_t students;    // Counts waiting students
+sem_t ta;          // TA availability semaphore
+pthread_mutex_t mutex; // Mutex to protect waiting_students counter
 
-int waiting = 0;       // Number of students waiting
+int waiting_students = 0;
 
-void *ta_actions(void *param) {
-    while(1) {
-        // TA is sleeping, waiting for a student
-        printf("TA is sleeping\n");
-        sem_wait(&ta_sem);
-        
-        // Critical section
+// ----------------------------------
+// TA Function
+// ----------------------------------
+void *ta_work(void *arg) {
+    while (1) {
+        // Wait for a student to arrive
+        sem_wait(&students);
+
+        // Protect waiting_students variable
         pthread_mutex_lock(&mutex);
-        if(waiting > 0) {
-            waiting--;
-            // Signal student to enter office
-            sem_post(&student_sem);
-        }
+        waiting_students--;
+        printf("TA starts helping a student. Students waiting: %d\n", waiting_students);
         pthread_mutex_unlock(&mutex);
-        
-        // Help student (simulation)
-        printf("TA is helping a student\n");
-        sleep(rand() % 5);
+
+        // Signal that TA is busy (available to one student)
+        sem_post(&ta);
+
+        // Simulate helping a student
+        sleep(rand() % 3 + 1);
+
+        printf("TA finished helping a student and is ready for the next one.\n\n");
     }
     return NULL;
 }
 
-void *student_actions(void *param) {
-    int id = *(int*)param;
-    while(1) {
+// ----------------------------------
+// Student Function
+// ----------------------------------
+void *student_activity(void *arg) {
+    int id = *(int *)arg;
+
+    while (1) {
+        // Student is programming (not at TA office)
+        sleep(rand() % 5 + 1);
+
         pthread_mutex_lock(&mutex);
-        
-        if(waiting < NUM_CHAIRS) {  // If there are empty chairs
-            waiting++;
-            printf("Student %d sat in hallway. Students waiting = %d\n", id, waiting);
+        if (waiting_students < MAX_CHAIRS) {
+            waiting_students++;
+            printf("Student %d is waiting. Students waiting: %d\n", id, waiting_students);
+
+            // Student notifies TA that they need help
+            sem_post(&students);
             pthread_mutex_unlock(&mutex);
-            
-            // Wake up TA
-            sem_post(&ta_sem);
-            
-            // Wait to be helped
-            sem_wait(&student_sem);
-            
-            printf("Student %d is getting help from the TA\n", id);
-            sleep(rand() % 5);  // Getting help
+
+            // Wait until TA is ready
+            sem_wait(&ta);
+            printf("Student %d is getting help from TA.\n", id);
         } else {
+            // No chairs available
             pthread_mutex_unlock(&mutex);
-            printf("Student %d will try later\n", id);
+            printf("Student %d found no empty chair and will come back later.\n", id);
         }
-        
-        // Student programs for a while before next visit
-        sleep(rand() % 10);
     }
     return NULL;
 }
 
+// ----------------------------------
+// Main Function
+// ----------------------------------
 int main() {
+    srand(time(NULL));
+
+    int num_students;
+    printf("Enter number of students: ");
+    scanf("%d", &num_students);
+
     pthread_t ta_thread;
-    pthread_t student_threads[NUM_STUDENTS];
-    int student_ids[NUM_STUDENTS];
-    
+    pthread_t student_threads[num_students];
+    int student_ids[num_students];
+
     // Initialize semaphores and mutex
-    sem_init(&ta_sem, 0, 0);      // TA is initially sleeping
-    sem_init(&student_sem, 0, 0);  // No student is initially being helped
+    sem_init(&students, 0, 0);
+    sem_init(&ta, 0, 0);
     pthread_mutex_init(&mutex, NULL);
-    
-    printf("Teaching Assistant Office Hours Simulation Started\n");
-    printf("Number of chairs in hallway: %d\n", NUM_CHAIRS);
-    printf("Number of students: %d\n\n", NUM_STUDENTS);
-    
+
     // Create TA thread
-    pthread_create(&ta_thread, NULL, ta_actions, NULL);
-    
+    pthread_create(&ta_thread, NULL, ta_work, NULL);
+
     // Create student threads
-    for(int i = 0; i < NUM_STUDENTS; i++) {
+    for (int i = 0; i < num_students; i++) {
         student_ids[i] = i + 1;
-        pthread_create(&student_threads[i], NULL, student_actions, &student_ids[i]);
+        pthread_create(&student_threads[i], NULL, student_activity, &student_ids[i]);
     }
-    
-    // Join threads
+
+    // Join threads (infinite loop, for simulation)
     pthread_join(ta_thread, NULL);
-    for(int i = 0; i < NUM_STUDENTS; i++) {
+    for (int i = 0; i < num_students; i++) {
         pthread_join(student_threads[i], NULL);
     }
-    
+
     // Cleanup
-    sem_destroy(&ta_sem);
-    sem_destroy(&student_sem);
+    sem_destroy(&students);
+    sem_destroy(&ta);
     pthread_mutex_destroy(&mutex);
-    
+
     return 0;
 }
