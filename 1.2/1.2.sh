@@ -5,10 +5,6 @@ if [ ! -f phonebook.txt ]; then
     touch phonebook.txt
 fi
 
-# Function to get last name from full name
-get_last_name() {
-    echo "$1" | awk '{print $NF}'
-}
 
 while true; do
     # Display menu
@@ -59,7 +55,7 @@ while true; do
             read term
 
             if grep -iq "$term" phonebook.txt; then
-                grep -iv "$term" phonebook.txt > temp && mv temp phonebook.txt
+                sed -i "/$term/Id" phonebook.txt
                 echo "Deleted successfully!"
             else
                 echo "No matching record found!"
