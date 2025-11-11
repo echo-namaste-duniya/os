@@ -36,7 +36,7 @@ void *producer(void *param) {
         sem_post(&ready);
         
         // Sleep for random time (0-100ms)
-        usleep((rand() % 101) * 1000);
+        sleep(rand() %10);
     }
     return NULL;
 }
@@ -68,9 +68,7 @@ void *consumer(void *param) {
 int main() {
     pthread_t producer_thread, consumer_thread;
     
-    // Initialize random seed
-    srand(time(NULL));
-    
+    // Initialize random see    
     // Initialize synchronization tools
     sem_init(&ready, 0, 0);      // Initially, no value is ready
     pthread_mutex_init(&mutex, NULL);

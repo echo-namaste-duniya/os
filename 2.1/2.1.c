@@ -45,14 +45,14 @@ int main() {
     printf("Enter the number of integers: ");
     scanf("%d", &n);
 
-    int *arr = (int *)malloc(n * sizeof(int));
+    int arr[n];
     printf("Enter %d integers:\n", n);
     for(int i = 0; i < n; i++) {
         scanf("%d", &arr[i]);
     }
 
     // Create a copy of array for child process
-    int *child_arr = (int *)malloc(n * sizeof(int));
+    int child_arr[n];
     for(int i = 0; i < n; i++) {
         child_arr[i] = arr[i];
     }
@@ -91,7 +91,5 @@ int main() {
         printf("Parent process completed\n");
     }
 
-    free(arr);
-    free(child_arr);
     return 0;
 }
